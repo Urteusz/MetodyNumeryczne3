@@ -1,207 +1,217 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons, Button, TextBox
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
+# --- ZMIENNE GLOBALNE ---
+function_type = "liniowa"
+nodes_type = "równoodległe"
+a_value = -5.0
+b_value = 5.0
+n_nodes = 5
+custom_nodes = []
 
-class NewtonInterpolation:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("Interpolacja Newtona dla nierównych odstępów")
-        self.root.geometry("1000x800")
+# --- FUNKCJE ---
 
-        # Parametry
-        self.function_type = tk.StringVar(value="liniowa")
-        self.nodes_type = tk.StringVar(value="równoodległe")
-        self.a_value = tk.DoubleVar(value=-5.0)
-        self.b_value = tk.DoubleVar(value=5.0)
-        self.n_nodes = tk.IntVar(value=5)
-        self.custom_nodes = []
+def get_function(x, func_type=None):
+    if func_type is None:
+        func_type = function_type
 
-        # Tworzenie interfejsu
-        self.create_widgets()
+    if func_type == "liniowa":
+        return 0.5 * x + 1
+    elif func_type == "moduł |x|":
+        return np.abs(x)
+    elif func_type == "wielomian":
+        return x ** 3 - 2 * x ** 2 + 3 * x - 1
+    elif func_type == "trygonometryczna":
+        return np.sin(x) + 0.5 * np.cos(2 * x)
+    elif func_type == "złożenie":
+        return np.sin(x ** 2) * np.exp(-0.1 * np.abs(x))
+    else:
+        return x
 
-        # Wartości funkcji
-        self.x_values = None
-        self.y_values = None
-        self.x_interpolated = None
-        self.y_interpolated = None
+def generate_nodes():
+    global custom_nodes, a_value, b_value, n_nodes, nodes_type
+    a = a_value
+    b = b_value
+    n = n_nodes
 
-    def create_widgets(self):
-        # Ramka z kontrolkami
-        control_frame = tk.Frame(self.root)
-        control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
-
-        # Wybór funkcji
-        tk.Label(control_frame, text="Funkcja:").grid(row=0, column=0, sticky=tk.W)
-        functions = ["liniowa", "moduł |x|", "wielomian", "trygonometryczna", "złożenie"]
-        for i, func in enumerate(functions):
-            tk.Radiobutton(control_frame, text=func, variable=self.function_type,
-                           value=func).grid(row=0, column=i + 1, sticky=tk.W)
-
-        # Wybór typu węzłów
-        tk.Label(control_frame, text="Typ węzłów:").grid(row=1, column=0, sticky=tk.W)
-        nodes_types = ["równoodległe", "Czebyszewa", "własne"]
-        for i, ntype in enumerate(nodes_types):
-            tk.Radiobutton(control_frame, text=ntype, variable=self.nodes_type,
-                           value=ntype).grid(row=1, column=i + 1, sticky=tk.W)
-
-        # Parametry przedziału
-        tk.Label(control_frame, text="Początek przedziału (a):").grid(row=2, column=0, sticky=tk.W)
-        tk.Entry(control_frame, textvariable=self.a_value, width=8).grid(row=2, column=1, sticky=tk.W)
-
-        tk.Label(control_frame, text="Koniec przedziału (b):").grid(row=3, column=0, sticky=tk.W)
-        tk.Entry(control_frame, textvariable=self.b_value, width=8).grid(row=3, column=1, sticky=tk.W)
-
-        tk.Label(control_frame, text="Liczba węzłów:").grid(row=4, column=0, sticky=tk.W)
-        tk.Entry(control_frame, textvariable=self.n_nodes, width=8).grid(row=4, column=1, sticky=tk.W)
-
-        # Przyciski
-        tk.Button(control_frame, text="Wczytaj węzły", command=self.load_nodes).grid(row=2, column=2, sticky=tk.W)
-        tk.Button(control_frame, text="Interpoluj", command=self.interpolate).grid(row=3, column=2, sticky=tk.W)
-
-        # Ramka na wykres
-        plot_frame = tk.Frame(self.root)
-        plot_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        # Tworzenie wykresu
-        self.fig = Figure(figsize=(10, 6), dpi=100)
-        self.ax = self.fig.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=plot_frame)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-
-    def load_nodes(self):
-        if self.nodes_type.get() != "własne":
-            messagebox.showinfo("Info", "Wczytywanie węzłów dostępne tylko dla opcji 'własne'")
-            return
-
-        # Okno dialogowe do wczytania węzłów
-        input_dialog = tk.Toplevel(self.root)
-        input_dialog.title("Wprowadź węzły")
-        input_dialog.geometry("400x300")
-
-        tk.Label(input_dialog, text="Wprowadź węzły (wartości x oddzielone spacją):").pack(pady=10)
-
-        text_widget = tk.Text(input_dialog, height=10, width=40)
-        text_widget.pack(pady=10)
-
-        def save_nodes():
-            try:
-                nodes_text = text_widget.get("1.0", tk.END).strip()
-                self.custom_nodes = [float(x) for x in nodes_text.split()]
-                messagebox.showinfo("Info", f"Wczytano {len(self.custom_nodes)} węzłów")
-                input_dialog.destroy()
-            except ValueError:
-                messagebox.showerror("Błąd", "Nieprawidłowy format danych. Wprowadź liczby oddzielone spacją.")
-
-        tk.Button(input_dialog, text="Zapisz", command=save_nodes).pack(pady=10)
-
-    def get_function(self, x, func_type=None):
-        if func_type is None:
-            func_type = self.function_type.get()
-
-        if func_type == "liniowa":
-            return 0.5 * x + 1
-        elif func_type == "moduł |x|":
-            return np.abs(x)
-        elif func_type == "wielomian":
-            return x ** 3 - 2 * x ** 2 + 3 * x - 1
-        elif func_type == "trygonometryczna":
-            return np.sin(x) + 0.5 * np.cos(2 * x)
-        elif func_type == "złożenie":
-            return np.sin(x ** 2) * np.exp(-0.1 * np.abs(x))
-        else:
-            return x  # domyślnie tożsamość
-
-    def generate_nodes(self):
-        a = self.a_value.get()
-        b = self.b_value.get()
-        n = self.n_nodes.get()
-        nodes_type = self.nodes_type.get()
-
-        if nodes_type == "równoodległe":
+    if nodes_type == "równoodległe":
+        return np.linspace(a, b, n)
+    elif nodes_type == "Czebyszewa":
+        k = np.arange(1, n + 1)
+        nodes = 0.5 * (a + b) + 0.5 * (b - a) * np.cos((2 * k - 1) * np.pi / (2 * n))
+        return nodes
+    elif nodes_type == "własne":
+        if len(custom_nodes) < 2:
+            messagebox.showerror("Błąd", "Brak zdefiniowanych węzłów własnych")
             return np.linspace(a, b, n)
-        elif nodes_type == "Czebyszewa":
-            # Węzły Czebyszewa w przedziale [a,b]
-            k = np.arange(1, n + 1)
-            nodes = 0.5 * (a + b) + 0.5 * (b - a) * np.cos((2 * k - 1) * np.pi / (2 * n))
-            return nodes
-        elif nodes_type == "własne":
-            if len(self.custom_nodes) < 2:
-                messagebox.showerror("Błąd", "Brak zdefiniowanych węzłów własnych")
-                return np.linspace(a, b, n)
-            return np.array(self.custom_nodes)
+        return np.array(custom_nodes)
 
-    def newton_coefficients(self, x, y):
-        """Oblicza współczynniki wielomianu Newtona."""
-        n = len(x)
-        coefs = np.copy(y)
+def newton_coefficients(x, y):
+    n = len(x)
+    coefs = np.copy(y)
+    for j in range(1, n):
+        for i in range(n - 1, j - 1, -1):
+            coefs[i] = (coefs[i] - coefs[i - 1]) / (x[i] - x[i - j])
+    return coefs
 
-        for j in range(1, n):
-            for i in range(n - 1, j - 1, -1):
-                coefs[i] = (coefs[i] - coefs[i - 1]) / (x[i] - x[i - j])
+def newton_interpolate(x_points, coefs, x_new):
+    n = len(x_points)
+    result = coefs[n - 1]
+    for i in range(n - 2, -1, -1):
+        result = result * (x_new - x_points[i]) + coefs[i]
+    return result
 
-        return coefs
+def load_nodes():
+    if nodes_type != "własne":
+        messagebox.showinfo("Info", "Wczytywanie węzłów dostępne tylko dla opcji 'własne'")
+        return
 
-    def newton_interpolate(self, x_points, coefs, x_new):
-        """Interpolacja metodą Newtona."""
-        n = len(x_points)
-        result = coefs[n - 1]
-
-        for i in range(n - 2, -1, -1):
-            result = result * (x_new - x_points[i]) + coefs[i]
-
-        return result
-
-    def interpolate(self):
+    def save_nodes():
+        nonlocal text_widget, input_dialog
         try:
-            # Generowanie węzłów
-            x_nodes = self.generate_nodes()
-            y_nodes = self.get_function(x_nodes)
+            nodes_text = text_widget.get("1.0", tk.END).strip()
+            loaded_nodes = [float(x) for x in nodes_text.split()]
+            global custom_nodes
+            custom_nodes = loaded_nodes
+            messagebox.showinfo("Info", f"Wczytano {len(custom_nodes)} węzłów")
+            input_dialog.destroy()
+        except ValueError:
+            messagebox.showerror("Błąd", "Nieprawidłowy format danych. Wprowadź liczby oddzielone spacją.")
 
-            # Współczynniki wielomianu Newtona
-            coefs = self.newton_coefficients(x_nodes, y_nodes)
+    input_dialog = tk.Toplevel(root)
+    input_dialog.title("Wprowadź węzły")
+    input_dialog.geometry("400x300")
 
-            # Generowanie punktów do wykresu
-            a, b = self.a_value.get(), self.b_value.get()
-            x = np.linspace(a, b, 1000)
-            y_original = self.get_function(x)
+    tk.Label(input_dialog, text="Wprowadź węzły (wartości x oddzielone spacją):").pack(pady=10)
 
-            # Interpolacja
-            y_interp = np.array([self.newton_interpolate(x_nodes, coefs, xi) for xi in x])
+    text_widget = tk.Text(input_dialog, height=10, width=40)
+    text_widget.pack(pady=10)
 
-            # Rysowanie wykresu
-            self.plot_results(x, y_original, x_nodes, y_nodes, x, y_interp)
+    tk.Button(input_dialog, text="Zapisz", command=save_nodes).pack(pady=10)
 
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Wystąpił błąd podczas interpolacji: {str(e)}")
+def interpolate():
+    try:
+        x_nodes = generate_nodes()
+        y_nodes = get_function(x_nodes)
 
-    def plot_results(self, x_orig, y_orig, x_nodes, y_nodes, x_interp, y_interp):
-        self.ax.clear()
+        coefs = newton_coefficients(x_nodes, y_nodes)
 
-        # Wykres funkcji oryginalnej
-        self.ax.plot(x_orig, y_orig, 'b-', label='Funkcja oryginalna')
+        a, b = a_value, b_value
+        x = np.linspace(a, b, 1000)
+        y_original = get_function(x)
 
-        # Wykres interpolacji
-        self.ax.plot(x_interp, y_interp, 'r--', label='Wielomian interpolacyjny')
+        y_interp = np.array([newton_interpolate(x_nodes, coefs, xi) for xi in x])
 
-        # Zaznaczenie węzłów
-        self.ax.plot(x_nodes, y_nodes, 'go', label='Węzły interpolacji')
+        plot_results(x, y_original, x_nodes, y_nodes, x, y_interp)
 
-        self.ax.set_title(f'Interpolacja Newtona - {self.function_type.get()}, {len(x_nodes)} węzłów')
-        self.ax.legend()
-        self.ax.grid(True)
+    except Exception as e:
+        messagebox.showerror("Błąd", f"Wystąpił błąd podczas interpolacji: {str(e)}")
 
-        self.canvas.draw()
+def plot_results(x_orig, y_orig, x_nodes, y_nodes, x_interp, y_interp):
+    ax.clear()
+    ax.plot(x_orig, y_orig, 'b-', label='Funkcja oryginalna')
+    ax.plot(x_interp, y_interp, 'r--', label='Wielomian interpolacyjny')
+    ax.plot(x_nodes, y_nodes, 'go', label='Węzły interpolacji')
+    ax.set_title(f'Interpolacja Newtona - {function_type}, {len(x_nodes)} węzłów')
+    ax.legend()
+    ax.grid(True)
+    canvas.draw()
 
-    def run(self):
-        self.root.mainloop()
+# --- FUNKCJE HANDLERÓW RADIOBUTTONÓW I ENTRY ---
 
+def set_function_type():
+    global function_type
+    function_type = func_var.get()
+
+def set_nodes_type():
+    global nodes_type
+    nodes_type = nodes_var.get()
+
+def update_a_value(*args):
+    global a_value
+    try:
+        a_value = float(a_entry.get())
+    except ValueError:
+        pass
+
+def update_b_value(*args):
+    global b_value
+    try:
+        b_value = float(b_entry.get())
+    except ValueError:
+        pass
+
+def update_n_nodes(*args):
+    global n_nodes
+    try:
+        n_nodes = int(n_entry.get())
+    except ValueError:
+        pass
+
+# --- GŁÓWNA FUNKCJA ---
+
+def main():
+    global root, canvas, ax, func_var, nodes_var, a_entry, b_entry, n_entry
+
+    root = tk.Tk()
+    root.title("Interpolacja Newtona dla nierównych odstępów")
+    root.geometry("1000x800")
+
+    control_frame = tk.Frame(root)
+    control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+
+    # Funkcja
+    tk.Label(control_frame, text="Funkcja:").grid(row=0, column=0, sticky=tk.W)
+    func_var = tk.StringVar(value="liniowa")
+    functions = ["liniowa", "moduł |x|", "wielomian", "trygonometryczna", "złożenie"]
+    for i, func in enumerate(functions):
+        tk.Radiobutton(control_frame, text=func, variable=func_var, value=func, command=set_function_type).grid(row=0, column=i+1, sticky=tk.W)
+
+    # Typ węzłów
+    tk.Label(control_frame, text="Typ węzłów:").grid(row=1, column=0, sticky=tk.W)
+    nodes_var = tk.StringVar(value="równoodległe")
+    nodes_types = ["równoodległe", "Czebyszewa", "własne"]
+    for i, ntype in enumerate(nodes_types):
+        tk.Radiobutton(control_frame, text=ntype, variable=nodes_var, value=ntype, command=set_nodes_type).grid(row=1, column=i+1, sticky=tk.W)
+
+    # Przedział i liczba węzłów
+    tk.Label(control_frame, text="Początek przedziału (a):").grid(row=2, column=0, sticky=tk.W)
+    a_entry = tk.Entry(control_frame, width=8)
+    a_entry.insert(0, str(a_value))
+    a_entry.grid(row=2, column=1, sticky=tk.W)
+    a_entry.bind("<FocusOut>", update_a_value)
+
+    tk.Label(control_frame, text="Koniec przedziału (b):").grid(row=3, column=0, sticky=tk.W)
+    b_entry = tk.Entry(control_frame, width=8)
+    b_entry.insert(0, str(b_value))
+    b_entry.grid(row=3, column=1, sticky=tk.W)
+    b_entry.bind("<FocusOut>", update_b_value)
+
+    tk.Label(control_frame, text="Liczba węzłów:").grid(row=4, column=0, sticky=tk.W)
+    n_entry = tk.Entry(control_frame, width=8)
+    n_entry.insert(0, str(n_nodes))
+    n_entry.grid(row=4, column=1, sticky=tk.W)
+    n_entry.bind("<FocusOut>", update_n_nodes)
+
+    # Przyciski
+    tk.Button(control_frame, text="Wczytaj węzły", command=load_nodes).grid(row=2, column=2, sticky=tk.W)
+    tk.Button(control_frame, text="Interpoluj", command=interpolate).grid(row=3, column=2, sticky=tk.W)
+
+    # Wykres
+    plot_frame = tk.Frame(root)
+    plot_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    fig = Figure(figsize=(10, 6), dpi=100)
+    ax = fig.add_subplot(111)
+    canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+    root.mainloop()
 
 if __name__ == "__main__":
-    app = NewtonInterpolation()
-    app.run()
+    main()
