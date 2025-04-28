@@ -1,7 +1,7 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
+
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -71,12 +71,16 @@ def load_nodes():
         return
 
     def save_nodes():
+        global n_nodes
         nonlocal text_widget, input_dialog
         try:
             nodes_text = text_widget.get("1.0", tk.END).strip()
             loaded_nodes = [float(x) for x in nodes_text.split()]
             global custom_nodes
             custom_nodes = loaded_nodes
+            n_nodes = len(custom_nodes)
+            n_entry.delete(0, tk.END)
+            n_entry.insert(0, str(n_nodes))
             messagebox.showinfo("Info", f"Wczytano {len(custom_nodes)} węzłów")
             input_dialog.destroy()
         except ValueError:
@@ -145,6 +149,7 @@ def update_b_value(*args):
     except ValueError:
         pass
 
+
 def update_n_nodes(*args):
     global n_nodes
     try:
@@ -183,19 +188,19 @@ def main():
     a_entry = tk.Entry(control_frame, width=8)
     a_entry.insert(0, str(a_value))
     a_entry.grid(row=2, column=1, sticky=tk.W)
-    a_entry.bind("<FocusOut>", update_a_value)
+    a_entry.bind("<KeyRelease>", update_a_value)
 
     tk.Label(control_frame, text="Koniec przedziału (b):").grid(row=3, column=0, sticky=tk.W)
     b_entry = tk.Entry(control_frame, width=8)
     b_entry.insert(0, str(b_value))
     b_entry.grid(row=3, column=1, sticky=tk.W)
-    b_entry.bind("<FocusOut>", update_b_value)
+    b_entry.bind("<KeyRelease>", update_b_value)
 
     tk.Label(control_frame, text="Liczba węzłów:").grid(row=4, column=0, sticky=tk.W)
     n_entry = tk.Entry(control_frame, width=8)
     n_entry.insert(0, str(n_nodes))
     n_entry.grid(row=4, column=1, sticky=tk.W)
-    n_entry.bind("<FocusOut>", update_n_nodes)
+    n_entry.bind("<KeyRelease>", update_n_nodes)
 
     # Przyciski
     tk.Button(control_frame, text="Wczytaj węzły", command=load_nodes).grid(row=2, column=2, sticky=tk.W)
