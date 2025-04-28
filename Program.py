@@ -120,10 +120,23 @@ def plot_results(x_orig, y_orig, x_nodes, y_nodes, x_interp, y_interp):
     ax.plot(x_orig, y_orig, 'b-', label='Funkcja oryginalna')
     ax.plot(x_interp, y_interp, 'r--', label='Wielomian interpolacyjny')
     ax.plot(x_nodes, y_nodes, 'go', label='Węzły interpolacji')
-    ax.set_title(f'Interpolacja Newtona - {function_type}, {len(x_nodes)} węzłów')
+    name = ""
+    if function_type == "liniowa":
+        name = r"$= \, 0.5x + 1$"
+    elif function_type == "wielomian":
+        name = r"$= \, x^3 - 2x^2 + 3x - 1$"
+    elif function_type == "trygonometryczna":
+        name = r"$= \, \sin(x) + 0.5\cos(2x)$"
+    elif function_type == "złożenie":
+        name = r"$= \, \sin(x^2) \times \exp\left(-0.1 |x|\right)$"
+
+    ax.set_title(
+        fr'Interpolacja Newtona - {function_type.capitalize()} {name}, liczba węzłów: {len(x_nodes)}'
+    )
     ax.legend()
     ax.grid(True)
     canvas.draw()
+
 
 # --- FUNKCJE HANDLERÓW RADIOBUTTONÓW I ENTRY ---
 
