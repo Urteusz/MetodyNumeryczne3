@@ -177,7 +177,7 @@ def main():
 
     root = tk.Tk()
     root.title("Interpolacja Newtona dla nierównych odstępów")
-    root.geometry("1000x800")
+    root.geometry("640x640")
 
     control_frame = tk.Frame(root)
     control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
